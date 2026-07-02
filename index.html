@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN"> 
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -208,6 +208,12 @@
   .btn-danger:hover { background: rgba(201,119,87,0.1); }
   .btn-ghost { width: auto; background: none; color: var(--gold); padding: 6px 0; text-decoration: none; }
   .btn-ghost:hover { color: var(--gold-bright); background: none; }
+
+  /* ---------- Admin: sidebar nav ---------- */
+  .nav-links { display: flex; flex-direction: column; gap: 4px; margin-top: 32px; }
+  .nav-link { font-size: 13px; color: var(--text-muted); padding: 8px 10px; border-radius: 4px; cursor: pointer; }
+  .nav-link:hover { color: var(--text); background: var(--panel-2); }
+  .nav-link.active { color: var(--gold-bright); background: rgba(201,161,90,0.08); }
 
   /* ---------- Admin: topbar + client list ---------- */
   .admin-topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
@@ -486,18 +492,30 @@ async function renderClientDashboard(session) {
 // ============================================
 
 // ---------- 判断当前登入用户是否为团队管理员 ----------
-async function isTeamAdmin(userId) {
-  const { data } = await sb.from("admin_users").select("user_id").eq("user_id", userId).maybeSingle();
-  return !!data;
+async function isTeamAdmin(session) {
+  const { data } = await sb.from("admin_users").select("email, user_id").eq("email", session.user.email).maybeSingle();
+  if (data) {
+    if (!data.user_id) {
+      // 补上这个管理员第一次登入时的 user_id，方便「管理员管理」页面显示登入状态
+      sb.from("admin_users").update({ user_id: session.user.id }).eq("email", session.user.email).then(() => {});
+    }
+    return true;
+  }
+  const byId = await sb.from("admin_users").select("email").eq("user_id", session.user.id).maybeSingle();
+  return !!byId.data;
 }
 
-function adminShellHtml(mainHtml) {
+function adminShellHtml(mainHtml, activeView = "clients") {
   return `
     <div class="app-shell">
       <div class="sidebar">
         <div>
           <div class="logo">LEEROY WONG</div>
           <div class="logo-sub">团队管理后台</div>
+          <div class="nav-links">
+            <div class="nav-link ${activeView === 'clients' ? 'active' : ''}" id="nav-clients">客户列表</div>
+            <div class="nav-link ${activeView === 'admins' ? 'active' : ''}" id="nav-admins">管理员管理</div>
+          </div>
         </div>
         <div class="nav-logout" id="logout-btn">登出</div>
       </div>
@@ -511,6 +529,8 @@ function bindAdminShellEvents() {
     await sb.auth.signOut();
     renderLogin();
   });
+  document.getElementById("nav-clients").addEventListener("click", () => renderAdminList());
+  document.getElementById("nav-admins").addEventListener("click", () => renderAdminUsersList());
 }
 
 // ---------- 动态行模板：专属配方 / 内容队列 / 数据成长 ----------
@@ -552,7 +572,7 @@ function growthRowHtml(g = {}) {
 
 // ---------- 渲染：客户列表 ----------
 async function renderAdminList() {
-  app.innerHTML = adminShellHtml(`<div class="msg">载入中...</div>`);
+  app.innerHTML = adminShellHtml(`<div class="msg">载入中...</div>`, "clients");
   bindAdminShellEvents();
 
   const { data: clients, error } = await sb.from("client_profiles").select("*").order("name", { ascending: true });
@@ -610,6 +630,79 @@ function renderClientListView(allClients) {
     );
     document.getElementById("client-list").innerHTML = listHtml(currentList);
     bindRows();
+  });
+}
+
+// ---------- 渲染：管理员管理 ----------
+async function renderAdminUsersList() {
+  app.innerHTML = adminShellHtml(`<div class="msg">载入中...</div>`, "admins");
+  bindAdminShellEvents();
+
+  const { data: admins, error } = await sb.from("admin_users").select("*").order("created_at", { ascending: true });
+
+  if (error) {
+    document.querySelector(".main").innerHTML = `<div class="msg error">载入管理员列表失败：${error.message}</div>`;
+    return;
+  }
+
+  const listHtml = (admins || []).length ? admins.map(a => `
+    <div class="client-row" style="cursor:default;">
+      <div>
+        <div class="client-name">${a.email}</div>
+        <div class="client-meta">${a.user_id ? '已登入过' : '尚未登入'} · 添加于 ${new Date(a.created_at).toLocaleDateString('zh-CN')}</div>
+      </div>
+    </div>
+  `).join("") : `<div class="empty-state">还没有其他管理员。</div>`;
+
+  document.querySelector(".main").innerHTML = `
+    <h1 class="page-title">管理员管理</h1>
+    <div class="welcome-sub">共 ${(admins || []).length} 位团队管理员</div>
+
+    <div class="section-label">添加管理员</div>
+    <div class="card">
+      <div style="display:flex; gap:12px; align-items:flex-end;">
+        <div class="form-group" style="flex:1; margin-bottom:0;">
+          <label class="field-label">邮箱地址</label>
+          <input type="text" id="new-admin-email" placeholder="teammate@example.com" />
+        </div>
+        <button class="btn-sm" id="add-admin-btn" style="width:auto;">添加管理员</button>
+      </div>
+      <div style="font-size:12px; color:var(--text-faint); margin-top:12px; line-height:1.6;">
+        添加后，这个邮箱下次用登入连结登入时会自动进入团队后台，不需要这个人现在就已经登入过。
+      </div>
+    </div>
+
+    <div class="section-label">现有管理员</div>
+    <div class="card" style="padding:8px 32px;">
+      ${listHtml}
+    </div>
+  `;
+
+  document.getElementById("add-admin-btn").addEventListener("click", async () => {
+    const emailInput = document.getElementById("new-admin-email");
+    const email = emailInput.value.trim();
+    if (!email || !email.includes("@")) { toast("请输入有效的邮箱地址", true); return; }
+
+    const btn = document.getElementById("add-admin-btn");
+    btn.disabled = true;
+    btn.textContent = "添加中...";
+
+    const { error: insertError } = await sb.from("admin_users").insert({ email });
+
+    btn.disabled = false;
+    btn.textContent = "添加管理员";
+
+    if (insertError) {
+      if (insertError.code === "23505") {
+        toast("这个邮箱已经是管理员了", true);
+      } else {
+        toast("添加失败：" + insertError.message, true);
+      }
+      return;
+    }
+
+    toast("已添加为管理员");
+    renderAdminUsersList();
   });
 }
 
@@ -768,7 +861,7 @@ function renderAdminEditor(client, allClients) {
 
 // ---------- 登入后路由：团队管理员 vs 老板 ----------
 async function route(session) {
-  const admin = await isTeamAdmin(session.user.id);
+  const admin = await isTeamAdmin(session);
   if (admin) {
     renderAdminList();
   } else {
