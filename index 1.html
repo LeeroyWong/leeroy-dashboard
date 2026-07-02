@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LeeroyCARE · 老板专属系统</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14120E;
+    --panel: #1A1710;
+    --panel-2: #1C1912;
+    --border: #2A2619;
+    --gold: #C9A15A;
+    --gold-bright: #E8C77E;
+    --text: #EDE6D8;
+    --text-muted: #8C8672;
+    --text-faint: #5A5540;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans SC', sans-serif;
+    min-height: 100vh;
+  }
+  .center-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .login-box {
+    width: 100%;
+    max-width: 380px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 40px 32px;
+  }
+  .logo {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 18px;
+    color: var(--gold-bright);
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+  }
+  .logo-sub {
+    font-size: 11px;
+    color: var(--text-faint);
+    letter-spacing: 0.08em;
+    margin-bottom: 32px;
+  }
+  .field-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: block;
+  }
+  input[type="email"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+    margin-bottom: 16px;
+  }
+  input[type="email"]:focus { outline: none; border-color: var(--gold); }
+  button {
+    width: 100%;
+    background: var(--gold);
+    color: #14120E;
+    border: none;
+    padding: 12px 14px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  button:hover { background: var(--gold-bright); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .msg { font-size: 13px; color: var(--text-muted); margin-top: 16px; line-height: 1.6; }
+  .msg.success { color: #7FA86B; }
+  .msg.error { color: #C97757; }
+
+  .app-shell { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 220px;
+    border-right: 1px solid var(--border);
+    padding: 28px 20px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .main { flex: 1; padding: 40px 48px; max-width: 880px; }
+  .nav-logout {
+    margin-top: auto;
+    font-size: 13px;
+    color: var(--text-faint);
+    cursor: pointer;
+    padding: 8px 0;
+  }
+  .nav-logout:hover { color: var(--text); }
+
+  h1.page-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .welcome-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 32px; }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px 32px;
+    margin-bottom: 32px;
+  }
+  .formula-card {
+    background: linear-gradient(155deg, var(--panel-2) 0%, #1A1710 100%);
+    padding: 32px 36px;
+  }
+  .formula-tag {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 6px;
+  }
+  .formula-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 24px; color: var(--text); margin-bottom: 4px;
+  }
+  .formula-sub { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; }
+  .pillar { display: flex; gap: 20px; padding: 20px 0; border-top: 1px solid #2A2619; }
+  .pillar:first-child { border-top: none; }
+  .pillar-code { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-faint); width: 28px; padding-top: 3px; }
+  .pillar-name { font-family: 'Noto Serif SC', serif; font-size: 18px; color: var(--gold-bright); }
+  .pillar-focus { font-size: 13px; color: #B5AE95; margin-left: 10px; }
+  .pillar-detail { font-size: 14px; color: #9C9680; line-height: 1.7; margin-top: 6px; }
+
+  .stage-row { display: flex; align-items: center; margin-bottom: 28px; }
+  .stage-step { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 68px; }
+  .stage-dot { width: 20px; height: 20px; border-radius: 50%; }
+  .stage-dot.done { background: var(--gold); }
+  .stage-dot.current { background: var(--gold-bright); box-shadow: 0 0 0 4px rgba(232,199,126,0.2); }
+  .stage-dot.upcoming { border: 2px solid #4A4636; }
+  .stage-label { font-size: 12px; color: #C9C2A8; text-align: center; }
+  .stage-label.upcoming { color: var(--text-faint); }
+  .stage-line { flex: 1; height: 1px; background: #2A2619; margin-bottom: 22px; }
+  .stage-line.active { background: #4A3F24; }
+
+  .queue-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 0; border-top: 1px solid #2A2619;
+  }
+  .queue-item:first-child { border-top: 1px solid #2A2619; }
+  .queue-title { font-size: 14px; color: var(--text); }
+  .queue-badge {
+    font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--gold);
+    background: rgba(201,161,90,0.1); padding: 3px 10px; border-radius: 20px;
+  }
+  .queue-eta { font-size: 13px; color: var(--text-muted); margin-left: 16px; }
+
+  .metric-row { display: flex; gap: 40px; margin-bottom: 24px; flex-wrap: wrap; }
+  .metric-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .metric-value { font-family: 'Noto Serif SC', serif; font-size: 28px; color: var(--text); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+// ============================================
+// 配置区 —— 这两行已经帮你填好
+// ============================================
+const SUPABASE_URL = "https://ihsbhjvllssasdcuieyu.supabase.co";
+const SUPABASE_KEY = "sb_publishable_cssDWjI1ikcWHqJjqgKt9g_2vEdbxh2";
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const app = document.getElementById("app");
+
+// ---------- 阶段名称 ----------
+const STAGE_NAMES = ["素材收集", "Editor 剪辑", "Leeroy 审核", "老板确认", "发布"];
+
+// ---------- 渲染：登入页 ----------
+function renderLogin(message = "", isError = false) {
+  app.innerHTML = `
+    <div class="center-screen">
+      <div class="login-box">
+        <div class="logo">LEEROY WONG</div>
+        <div class="logo-sub">内容陪跑系统 · 老板登入</div>
+        <label class="field-label">邮箱地址</label>
+        <input type="email" id="email-input" placeholder="you@example.com" />
+        <button id="login-btn">发送登入连结</button>
+        ${message ? `<div class="msg ${isError ? 'error' : 'success'}">${message}</div>` : ''}
+      </div>
+    </div>
+  `;
+
+  document.getElementById("login-btn").addEventListener("click", async () => {
+    const email = document.getElementById("email-input").value.trim();
+    if (!email) {
+      renderLogin("请输入邮箱地址", true);
+      return;
+    }
+    const btn = document.getElementById("login-btn");
+    btn.disabled = true;
+    btn.textContent = "发送中...";
+
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href }
+    });
+
+    if (error) {
+      renderLogin("发送失败：" + error.message, true);
+    } else {
+      renderLogin("登入连结已发送到你的邮箱，请check邮箱并点击连结登入。", false);
+    }
+  });
+}
+
+// ---------- 渲染：Dashboard ----------
+async function renderDashboard(userId) {
+  app.innerHTML = `<div class="center-screen"><div class="msg">载入中...</div></div>`;
+
+  const { data: profile, error } = await sb
+    .from("client_profiles")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !profile) {
+    app.innerHTML = `
+      <div class="center-screen">
+        <div class="login-box">
+          <div class="logo">LEEROY WONG</div>
+          <div class="msg" style="margin-top:16px;">
+            你的账号还没有关联专属资料。<br/>请联系团队为你的账号设置资料。
+          </div>
+          <button id="logout-btn" style="margin-top:20px;">登出</button>
+        </div>
+      </div>
+    `;
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      await sb.auth.signOut();
+      renderLogin();
+    });
+    return;
+  }
+
+  const formula = profile.formula || [];
+  const queue = profile.content_queue || [];
+  const growth = profile.growth_data || [];
+  const currentStage = profile.pipeline_stage || 1;
+
+  const stageHtml = STAGE_NAMES.map((label, i) => {
+    const idx = i + 1;
+    const status = idx < currentStage ? "done" : idx === currentStage ? "current" : "upcoming";
+    return `
+      <div class="stage-step">
+        <div class="stage-dot ${status}"></div>
+        <div class="stage-label ${status === 'upcoming' ? 'upcoming' : ''}">${label}</div>
+      </div>
+      ${i < STAGE_NAMES.length - 1 ? `<div class="stage-line ${idx < currentStage ? 'active' : ''}"></div>` : ''}
+    `;
+  }).join("");
+
+  const pillarsHtml = formula.length ? formula.map(p => `
+    <div class="pillar">
+      <div class="pillar-code">${p.code || ''}</div>
+      <div>
+        <div><span class="pillar-name">${p.name || ''}</span><span class="pillar-focus">${p.focus || ''}</span></div>
+        <div class="pillar-detail">${p.detail || ''}</div>
+      </div>
+    </div>
+  `).join("") : `<div class="empty-state">Leeroy 还在为你准备专属配方，敬请期待。</div>`;
+
+  const queueHtml = queue.length ? queue.map(q => `
+    <div class="queue-item">
+      <div class="queue-title">${q.title || ''}</div>
+      <div style="display:flex;align-items:center;">
+        <span class="queue-badge">${q.stage || ''}</span>
+        <span class="queue-eta">${q.eta || ''}</span>
+      </div>
+    </div>
+  `).join("") : `<div class="empty-state">目前没有进行中的内容。</div>`;
+
+  let growthHtml = `<div class="empty-state">数据成长记录准备中。</div>`;
+  if (growth.length) {
+    const latest = growth[growth.length - 1];
+    const first = growth[0];
+    const followerGrowth = first.followers ? Math.round(((latest.followers - first.followers) / first.followers) * 100) : 0;
+    growthHtml = `
+      <div class="metric-row">
+        <div>
+          <div class="metric-label">粉丝数</div>
+          <div class="metric-value">${latest.followers?.toLocaleString() || '-'}
+            <span style="font-size:13px;color:#7FA86B;margin-left:8px;font-family:'JetBrains Mono',monospace;">
+              ${followerGrowth >= 0 ? '+' : ''}${followerGrowth}% (${first.month}起)
+            </span>
+          </div>
+        </div>
+        <div>
+          <div class="metric-label">本月观看量</div>
+          <div class="metric-value">${latest.views?.toLocaleString() || '-'}</div>
+        </div>
+      </div>
+      <table style="width:100%; border-collapse:collapse; margin-top:8px;">
+        <thead>
+          <tr style="border-bottom:1px solid #2A2619;">
+            <th style="text-align:left; padding:8px 0; font-size:12px; color:var(--text-muted); font-weight:400;">月份</th>
+            <th style="text-align:right; padding:8px 0; font-size:12px; color:var(--text-muted); font-weight:400;">粉丝数</th>
+            <th style="text-align:right; padding:8px 0; font-size:12px; color:var(--text-muted); font-weight:400;">观看量</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${growth.map(g => `
+            <tr style="border-bottom:1px solid #221F16;">
+              <td style="padding:10px 0; font-size:13px; color:var(--text);">${g.month}</td>
+              <td style="padding:10px 0; font-size:13px; color:var(--text); text-align:right;">${g.followers?.toLocaleString() || '-'}</td>
+              <td style="padding:10px 0; font-size:13px; color:var(--text); text-align:right;">${g.views?.toLocaleString() || '-'}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  app.innerHTML = `
+    <div class="app-shell">
+      <div class="sidebar">
+        <div>
+          <div class="logo">LEEROY WONG</div>
+          <div class="logo-sub">内容陪跑系统</div>
+        </div>
+        <div class="nav-logout" id="logout-btn">登出</div>
+      </div>
+      <div class="main">
+        <div class="welcome-sub">${profile.joined_date || ''} 加入 · ${profile.handle || ''}</div>
+        <h1 class="page-title">你好，${profile.name}</h1>
+
+        <div class="card formula-card">
+          <div class="formula-tag">✦ 专属配方</div>
+          <div class="formula-title">${profile.name} 专属内容配方</div>
+          <div class="formula-sub">由 Leeroy 亲自制定 · ${profile.industry || ''}</div>
+          ${pillarsHtml}
+        </div>
+
+        <div class="section-label">当前进度</div>
+        <div class="card">
+          <div class="stage-row">${stageHtml}</div>
+          ${queueHtml}
+        </div>
+
+        <div class="section-label">数据成长</div>
+        <div class="card">
+          ${growthHtml}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("logout-btn").addEventListener("click", async () => {
+    await sb.auth.signOut();
+    renderLogin();
+  });
+}
+
+// ---------- 启动：检查登入状态 ----------
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    renderDashboard(session.user.id);
+  } else {
+    renderLogin();
+  }
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === "SIGNED_IN" && session) {
+    renderDashboard(session.user.id);
+  } else if (event === "SIGNED_OUT") {
+    renderLogin();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
