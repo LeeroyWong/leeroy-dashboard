@@ -59,7 +59,7 @@
     margin-bottom: 8px;
     display: block;
   }
-  input[type="email"] {
+  input[type="email"], input[type="password"] {
     width: 100%;
     background: var(--bg);
     border: 1px solid var(--border);
@@ -70,7 +70,9 @@
     font-family: inherit;
     margin-bottom: 16px;
   }
-  input[type="email"]:focus { outline: none; border-color: var(--gold); }
+  input[type="email"]:focus, input[type="password"]:focus { outline: none; border-color: var(--gold); }
+  .login-toggle { font-size: 13px; color: var(--gold); cursor: pointer; text-decoration: underline; margin-top: 16px; }
+  .login-toggle:hover { color: var(--gold-bright); }
   button {
     width: 100%;
     background: var(--gold);
@@ -335,40 +337,62 @@ function toast(message, isError = false) {
   setTimeout(() => el.remove(), 3000);
 }
 
-// ---------- 渲染：登入页 ----------
-function renderLogin(message = "", isError = false) {
+// ---------- 渲染：登入页（邮箱 + 密码） ----------
+function renderLogin(message = "", isError = false, mode = "login") {
+  const isSignup = mode === "signup";
+
   app.innerHTML = `
     <div class="center-screen">
       <div class="login-box">
         <div class="logo">LEEROY WONG</div>
-        <div class="logo-sub">内容陪跑系统 · 老板登入</div>
+        <div class="logo-sub">内容陪跑系统 · ${isSignup ? '首次设置密码' : '老板登入'}</div>
         <label class="field-label">邮箱地址</label>
         <input type="email" id="email-input" placeholder="you@example.com" />
-        <button id="login-btn">发送登入连结</button>
+        <label class="field-label">密码</label>
+        <input type="password" id="password-input" placeholder="${isSignup ? '设置一个密码（至少6位）' : '输入密码'}" />
+        <button id="submit-btn">${isSignup ? '设置密码并登入' : '登入'}</button>
+        <div class="login-toggle" id="toggle-mode">${isSignup ? '已经设置过密码？点此登入' : '第一次使用？点此设置密码'}</div>
         ${message ? `<div class="msg ${isError ? 'error' : 'success'}">${message}</div>` : ''}
       </div>
     </div>
   `;
 
-  document.getElementById("login-btn").addEventListener("click", async () => {
+  document.getElementById("toggle-mode").addEventListener("click", () => {
+    renderLogin("", false, isSignup ? "login" : "signup");
+  });
+
+  document.getElementById("submit-btn").addEventListener("click", async () => {
     const email = document.getElementById("email-input").value.trim();
-    if (!email) {
-      renderLogin("请输入邮箱地址", true);
-      return;
-    }
-    const btn = document.getElementById("login-btn");
+    const password = document.getElementById("password-input").value;
+
+    if (!email) { renderLogin("请输入邮箱地址", true, mode); return; }
+    if (!password || password.length < 6) { renderLogin("密码至少需要 6 位", true, mode); return; }
+
+    const btn = document.getElementById("submit-btn");
     btn.disabled = true;
-    btn.textContent = "发送中...";
+    btn.textContent = "处理中...";
 
-    const { error } = await sb.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.href }
-    });
-
-    if (error) {
-      renderLogin("发送失败：" + error.message, true);
-    } else {
-      renderLogin("登入连结已发送到你的邮箱，请check邮箱并点击连结登入。", false);
+    try {
+      if (isSignup) {
+        const { data, error } = await sb.auth.signUp({ email, password });
+        if (error) {
+          renderLogin("设置失败：" + (error.message || String(error)), true, mode);
+          return;
+        }
+        if (!data.session) {
+          renderLogin("账号已建立，但还需要额外验证，请联系团队协助。", true, mode);
+          return;
+        }
+        // 登入成功后交给下面的 onAuthStateChange 处理路由
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) {
+          renderLogin("登入失败：" + (error.message || String(error)) + "。如果是第一次使用，请点下方设置密码。", true, mode);
+          return;
+        }
+      }
+    } catch (err) {
+      renderLogin("操作失败（网络或连线问题）：" + (err?.message || String(err)), true, mode);
     }
   });
 }
@@ -707,7 +731,7 @@ async function renderAdminUsersList() {
         <button class="btn-sm" id="add-admin-btn" style="width:auto;">添加管理员</button>
       </div>
       <div style="font-size:12px; color:var(--text-faint); margin-top:12px; line-height:1.6;">
-        添加后，这个邮箱下次用登入连结登入时会自动进入团队后台，不需要这个人现在就已经登入过。
+        添加后，这个邮箱下次用邮箱+密码登入（首次需先设置密码）时会自动进入团队后台，不需要这个人现在就已经登入过。
       </div>
     </div>
 
@@ -908,30 +932,8 @@ async function route(session) {
   }
 }
 
-// ---------- 处理登入连结点击后，Supabase 重定向带回来的错误信息 ----------
-// 常见情况：magic link 是一次性的，如果邮箱客户端（比如 Outlook 安全链接扫描）
-// 在用户真正点击前就先访问过一次，链接会被提前消耗，导致点击后直接失效。
-function getAuthErrorFromUrl() {
-  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
-  const params = new URLSearchParams(hash);
-  const error = params.get('error');
-  const errorDescription = params.get('error_description');
-  if (!error && !errorDescription) return null;
-
-  // 清掉网址里的错误参数，避免刷新页面时反复弹出同一个错误
-  history.replaceState(null, '', window.location.pathname + window.location.search);
-
-  return errorDescription ? decodeURIComponent(errorDescription.replace(/\+/g, ' ')) : error;
-}
-
 // ---------- 启动：检查登入状态 ----------
 async function init() {
-  const authError = getAuthErrorFromUrl();
-  if (authError) {
-    renderLogin("登入连结无效或已过期：" + authError + "。请重新发送登入连结（收到后尽快点击，且只点一次）。", true);
-    return;
-  }
-
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     route(session);
