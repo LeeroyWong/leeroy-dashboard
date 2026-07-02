@@ -257,6 +257,8 @@
     padding: 10px; margin-top: 8px; font-size: 13px;
   }
   .add-row-btn:hover { border-color: var(--gold); color: var(--gold-bright); background: transparent; }
+  .pillar-row { flex-direction: column; align-items: stretch; }
+  .pillar-fields-row { display: flex; gap: 10px; }
   .pillar-code-input { max-width: 60px; flex: 0 0 60px !important; }
 
   .toast {
@@ -266,6 +268,43 @@
   }
   .toast.success { border-color: #3E5A34; color: #7FA86B; }
   .toast.error { border-color: #6B3A2E; color: #C97757; }
+
+  /* ---------- 手机适配 ---------- */
+  @media (max-width: 720px) {
+    .app-shell { flex-direction: column; }
+    .sidebar {
+      width: 100%;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar > div:first-child { display: flex; align-items: center; gap: 20px; }
+    .logo-sub { display: none; }
+    .nav-links { flex-direction: row; margin-top: 0; gap: 4px; }
+    .nav-logout { margin-top: 0; }
+    .main { padding: 24px 20px; max-width: 100%; }
+
+    h1.page-title { font-size: 24px; }
+    .card { padding: 20px; }
+    .formula-card { padding: 24px 20px; }
+
+    .form-grid { grid-template-columns: 1fr; }
+    .admin-topbar { flex-direction: column; align-items: stretch; }
+    .search-input { max-width: 100%; }
+
+    .dyn-row, .pillar-fields-row { flex-wrap: wrap; }
+    .dyn-row input, .pillar-fields-row input { flex: 1 1 140px; }
+    .dyn-row .remove-row-btn { margin-left: auto; }
+
+    .stage-row { overflow-x: auto; }
+    .metric-row { gap: 24px; }
+
+    .btn-row { flex-direction: column; }
+    .btn-row button { width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -536,8 +575,8 @@ function bindAdminShellEvents() {
 // ---------- 动态行模板：专属配方 / 内容队列 / 数据成长 ----------
 function pillarRowHtml(p = {}) {
   return `
-    <div class="dyn-row" style="flex-direction:column; align-items:stretch;">
-      <div style="display:flex; gap:10px;">
+    <div class="dyn-row pillar-row">
+      <div class="pillar-fields-row">
         <input type="text" class="p-code pillar-code-input" placeholder="01" value="${p.code || ''}" />
         <input type="text" class="p-name" placeholder="支柱名称" value="${p.name || ''}" />
         <input type="text" class="p-focus" placeholder="定位 / 侧重" value="${p.focus || ''}" />
