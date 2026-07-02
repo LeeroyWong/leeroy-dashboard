@@ -182,6 +182,84 @@
   .metric-value { font-family: 'Noto Serif SC', serif; font-size: 28px; color: var(--text); }
 
   .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; }
+
+  /* ---------- Admin: shared form controls ---------- */
+  .form-group { margin-bottom: 18px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  input[type="text"], input[type="number"], input[type="date"], select, textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus,
+  select:focus, textarea:focus { outline: none; border-color: var(--gold); }
+  textarea { resize: vertical; min-height: 44px; line-height: 1.6; }
+
+  .btn-row { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+  .btn-sm { width: auto; padding: 9px 18px; font-size: 13px; }
+  .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+  .btn-secondary:hover { background: var(--panel-2); color: var(--text); }
+  .btn-danger { background: transparent; border: 1px solid #6B3A2E; color: #C97757; }
+  .btn-danger:hover { background: rgba(201,119,87,0.1); }
+  .btn-ghost { width: auto; background: none; color: var(--gold); padding: 6px 0; text-decoration: none; }
+  .btn-ghost:hover { color: var(--gold-bright); background: none; }
+
+  /* ---------- Admin: topbar + client list ---------- */
+  .admin-topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .search-input { max-width: 260px; }
+  .client-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px; border-top: 1px solid #2A2619; cursor: pointer;
+  }
+  .client-row:first-child { border-top: none; }
+  .client-row:hover { background: var(--panel-2); }
+  .client-name { font-size: 15px; color: var(--text); }
+  .client-meta { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+  .stage-chip {
+    font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--gold);
+    background: rgba(201,161,90,0.1); padding: 4px 10px; border-radius: 20px; white-space: nowrap;
+  }
+
+  /* ---------- Admin: editor ---------- */
+  .editor-back { display: inline-block; margin-bottom: 20px; }
+  .stage-picker { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stage-option {
+    flex: 1; min-width: 100px; text-align: center; padding: 12px 8px;
+    border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
+    font-size: 12px; color: var(--text-muted);
+  }
+  .stage-option.selected { border-color: var(--gold); color: var(--gold-bright); background: rgba(201,161,90,0.08); }
+
+  .dyn-row { display: flex; gap: 10px; align-items: flex-start; padding: 12px 0; border-top: 1px solid #221F16; }
+  .dyn-row:first-of-type { border-top: none; }
+  .dyn-row input, .dyn-row select { flex: 1; }
+  .dyn-row textarea { margin-top: 10px; }
+  .dyn-row .remove-row-btn { flex: 0 0 auto; }
+  .remove-row-btn {
+    width: 32px; height: 32px; border-radius: 4px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-faint); font-size: 16px; line-height: 1;
+    cursor: pointer; padding: 0;
+  }
+  .remove-row-btn:hover { color: #C97757; border-color: #6B3A2E; background: rgba(201,119,87,0.08); }
+  .add-row-btn {
+    width: 100%; background: transparent; border: 1px dashed var(--border); color: var(--text-muted);
+    padding: 10px; margin-top: 8px; font-size: 13px;
+  }
+  .add-row-btn:hover { border-color: var(--gold); color: var(--gold-bright); background: transparent; }
+  .pillar-code-input { max-width: 60px; flex: 0 0 60px !important; }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 4px;
+    font-size: 13px; background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    z-index: 100;
+  }
+  .toast.success { border-color: #3E5A34; color: #7FA86B; }
+  .toast.error { border-color: #6B3A2E; color: #C97757; }
 </style>
 </head>
 <body>
@@ -202,6 +280,15 @@ const app = document.getElementById("app");
 
 // ---------- 阶段名称 ----------
 const STAGE_NAMES = ["素材收集", "Editor 剪辑", "Leeroy 审核", "老板确认", "发布"];
+
+// ---------- 小工具：右下角提示 ----------
+function toast(message, isError = false) {
+  const el = document.createElement("div");
+  el.className = `toast ${isError ? 'error' : 'success'}`;
+  el.textContent = message;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
 
 // ---------- 渲染：登入页 ----------
 function renderLogin(message = "", isError = false) {
@@ -241,15 +328,21 @@ function renderLogin(message = "", isError = false) {
   });
 }
 
-// ---------- 渲染：Dashboard ----------
-async function renderDashboard(userId) {
+// ---------- 渲染：老板 Dashboard ----------
+async function renderClientDashboard(session) {
   app.innerHTML = `<div class="center-screen"><div class="msg">载入中...</div></div>`;
 
-  const { data: profile, error } = await sb
+  let { data: profile, error } = await sb
     .from("client_profiles")
     .select("*")
-    .eq("user_id", userId)
-    .single();
+    .eq("email", session.user.email)
+    .maybeSingle();
+
+  if (!profile && !error) {
+    const fallback = await sb.from("client_profiles").select("*").eq("user_id", session.user.id).maybeSingle();
+    profile = fallback.data;
+    error = fallback.error;
+  }
 
   if (error || !profile) {
     app.innerHTML = `
@@ -388,11 +481,306 @@ async function renderDashboard(userId) {
   });
 }
 
+// ============================================
+// 团队后台管理（Admin）
+// ============================================
+
+// ---------- 判断当前登入用户是否为团队管理员 ----------
+async function isTeamAdmin(userId) {
+  const { data } = await sb.from("admin_users").select("user_id").eq("user_id", userId).maybeSingle();
+  return !!data;
+}
+
+function adminShellHtml(mainHtml) {
+  return `
+    <div class="app-shell">
+      <div class="sidebar">
+        <div>
+          <div class="logo">LEEROY WONG</div>
+          <div class="logo-sub">团队管理后台</div>
+        </div>
+        <div class="nav-logout" id="logout-btn">登出</div>
+      </div>
+      <div class="main">${mainHtml}</div>
+    </div>
+  `;
+}
+
+function bindAdminShellEvents() {
+  document.getElementById("logout-btn").addEventListener("click", async () => {
+    await sb.auth.signOut();
+    renderLogin();
+  });
+}
+
+// ---------- 动态行模板：专属配方 / 内容队列 / 数据成长 ----------
+function pillarRowHtml(p = {}) {
+  return `
+    <div class="dyn-row" style="flex-direction:column; align-items:stretch;">
+      <div style="display:flex; gap:10px;">
+        <input type="text" class="p-code pillar-code-input" placeholder="01" value="${p.code || ''}" />
+        <input type="text" class="p-name" placeholder="支柱名称" value="${p.name || ''}" />
+        <input type="text" class="p-focus" placeholder="定位 / 侧重" value="${p.focus || ''}" />
+        <button type="button" class="remove-row-btn" title="删除">×</button>
+      </div>
+      <textarea class="p-detail" placeholder="详细说明">${p.detail || ''}</textarea>
+    </div>
+  `;
+}
+
+function queueRowHtml(q = {}) {
+  return `
+    <div class="dyn-row">
+      <input type="text" class="q-title" placeholder="内容标题" value="${q.title || ''}" />
+      <input type="text" class="q-stage" placeholder="阶段（如 Editor 剪辑）" value="${q.stage || ''}" />
+      <input type="text" class="q-eta" placeholder="预计时间（如 3天后）" value="${q.eta || ''}" />
+      <button type="button" class="remove-row-btn" title="删除">×</button>
+    </div>
+  `;
+}
+
+function growthRowHtml(g = {}) {
+  return `
+    <div class="dyn-row">
+      <input type="text" class="g-month" placeholder="月份（如 2026-06）" value="${g.month || ''}" />
+      <input type="number" class="g-followers" placeholder="粉丝数" value="${g.followers ?? ''}" />
+      <input type="number" class="g-views" placeholder="观看量" value="${g.views ?? ''}" />
+      <button type="button" class="remove-row-btn" title="删除">×</button>
+    </div>
+  `;
+}
+
+// ---------- 渲染：客户列表 ----------
+async function renderAdminList() {
+  app.innerHTML = adminShellHtml(`<div class="msg">载入中...</div>`);
+  bindAdminShellEvents();
+
+  const { data: clients, error } = await sb.from("client_profiles").select("*").order("name", { ascending: true });
+
+  if (error) {
+    document.querySelector(".main").innerHTML = `<div class="msg error">载入客户列表失败：${error.message}</div>`;
+    return;
+  }
+
+  renderClientListView(clients || []);
+}
+
+function renderClientListView(allClients) {
+  const listHtml = (list) => list.length ? list.map((c, i) => `
+    <div class="client-row" data-idx="${i}">
+      <div>
+        <div class="client-name">${c.name || '(未命名)'}</div>
+        <div class="client-meta">${c.email || '未设置邮箱'}${c.handle ? ' · ' + c.handle : ''}</div>
+      </div>
+      <div class="stage-chip">${STAGE_NAMES[(c.pipeline_stage || 1) - 1] || ''}</div>
+    </div>
+  `).join("") : `<div class="empty-state">还没有老板资料，点击右上角新增。</div>`;
+
+  document.querySelector(".main").innerHTML = `
+    <h1 class="page-title">客户列表</h1>
+    <div class="welcome-sub">共 ${allClients.length} 位老板</div>
+    <div class="admin-topbar">
+      <input type="text" class="search-input" id="client-search" placeholder="搜索姓名 / 邮箱 / handle" />
+      <button class="btn-sm" id="new-client-btn" style="width:auto;">+ 新增老板</button>
+    </div>
+    <div class="card" id="client-list" style="padding:8px 32px;">
+      ${listHtml(allClients)}
+    </div>
+  `;
+
+  let currentList = allClients;
+
+  function bindRows() {
+    document.querySelectorAll(".client-row").forEach(row => {
+      row.addEventListener("click", () => {
+        renderAdminEditor(currentList[Number(row.dataset.idx)], allClients);
+      });
+    });
+  }
+  bindRows();
+
+  document.getElementById("new-client-btn").addEventListener("click", () => renderAdminEditor(null, allClients));
+
+  document.getElementById("client-search").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    currentList = allClients.filter(c =>
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.handle || '').toLowerCase().includes(q)
+    );
+    document.getElementById("client-list").innerHTML = listHtml(currentList);
+    bindRows();
+  });
+}
+
+// ---------- 渲染：编辑 / 新增老板 ----------
+function renderAdminEditor(client, allClients) {
+  const isNew = !client;
+  const c = client || {};
+  const formula = c.formula || [];
+  const queue = c.content_queue || [];
+  const growth = c.growth_data || [];
+  const stage = c.pipeline_stage || 1;
+  const originalEmail = c.email || null;
+
+  const stagePickerHtml = STAGE_NAMES.map((label, i) => {
+    const idx = i + 1;
+    return `<div class="stage-option ${idx === stage ? 'selected' : ''}" data-stage="${idx}">${idx}. ${label}</div>`;
+  }).join("");
+
+  document.querySelector(".main").innerHTML = `
+    <a href="#" class="btn-ghost editor-back" id="back-to-list">← 返回客户列表</a>
+    <h1 class="page-title">${isNew ? '新增老板' : (c.name || '编辑老板')}</h1>
+    <div class="welcome-sub">${isNew ? '填写基本资料后点击保存即可创建' : '修改后点击保存生效，老板端会实时看到更新'}</div>
+
+    <div class="section-label">基本资料</div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="form-group"><label class="field-label">姓名</label><input type="text" id="f-name" value="${c.name || ''}" /></div>
+        <div class="form-group"><label class="field-label">邮箱（用于关联老板登入账号）</label><input type="text" id="f-email" value="${c.email || ''}" placeholder="boss@example.com" /></div>
+        <div class="form-group"><label class="field-label">Handle / 平台账号</label><input type="text" id="f-handle" value="${c.handle || ''}" /></div>
+        <div class="form-group"><label class="field-label">行业</label><input type="text" id="f-industry" value="${c.industry || ''}" /></div>
+        <div class="form-group"><label class="field-label">加入日期</label><input type="date" id="f-joined" value="${c.joined_date || ''}" /></div>
+      </div>
+    </div>
+
+    <div class="section-label">进度阶段</div>
+    <div class="card">
+      <div class="stage-picker" id="stage-picker">${stagePickerHtml}</div>
+    </div>
+
+    <div class="section-label">专属配方（内容支柱）</div>
+    <div class="card">
+      <div id="pillars-container">${formula.length ? formula.map(pillarRowHtml).join("") : ''}</div>
+      <button type="button" class="add-row-btn" id="add-pillar-btn">+ 添加支柱</button>
+    </div>
+
+    <div class="section-label">内容队列</div>
+    <div class="card">
+      <div id="queue-container">${queue.length ? queue.map(queueRowHtml).join("") : ''}</div>
+      <button type="button" class="add-row-btn" id="add-queue-btn">+ 添加内容</button>
+    </div>
+
+    <div class="section-label">数据成长</div>
+    <div class="card">
+      <div id="growth-container">${growth.length ? growth.map(growthRowHtml).join("") : ''}</div>
+      <button type="button" class="add-row-btn" id="add-growth-btn">+ 添加一个月数据</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-sm" id="save-client-btn" style="width:auto;">保存</button>
+      <button class="btn-sm btn-secondary" id="cancel-edit-btn">取消</button>
+      ${!isNew ? `<button class="btn-sm btn-danger" id="delete-client-btn">删除该老板</button>` : ''}
+    </div>
+  `;
+
+  document.getElementById("back-to-list").addEventListener("click", (e) => { e.preventDefault(); renderClientListView(allClients); });
+  document.getElementById("cancel-edit-btn").addEventListener("click", () => renderClientListView(allClients));
+
+  document.getElementById("stage-picker").addEventListener("click", (e) => {
+    const opt = e.target.closest(".stage-option");
+    if (!opt) return;
+    document.querySelectorAll(".stage-option").forEach(o => o.classList.remove("selected"));
+    opt.classList.add("selected");
+  });
+
+  document.getElementById("add-pillar-btn").addEventListener("click", () => {
+    document.getElementById("pillars-container").insertAdjacentHTML("beforeend", pillarRowHtml());
+  });
+  document.getElementById("add-queue-btn").addEventListener("click", () => {
+    document.getElementById("queue-container").insertAdjacentHTML("beforeend", queueRowHtml());
+  });
+  document.getElementById("add-growth-btn").addEventListener("click", () => {
+    document.getElementById("growth-container").insertAdjacentHTML("beforeend", growthRowHtml());
+  });
+
+  ["pillars-container", "queue-container", "growth-container"].forEach(id => {
+    document.getElementById(id).addEventListener("click", (e) => {
+      if (e.target.matches(".remove-row-btn")) {
+        e.target.closest(".dyn-row").remove();
+      }
+    });
+  });
+
+  if (!isNew) {
+    document.getElementById("delete-client-btn").addEventListener("click", async () => {
+      if (!confirm(`确定要删除「${c.name || c.email}」的资料吗？此操作无法撤销。`)) return;
+      const { error } = await sb.from("client_profiles").delete().eq("email", originalEmail);
+      if (error) { toast("删除失败：" + error.message, true); return; }
+      toast("已删除");
+      renderAdminList();
+    });
+  }
+
+  document.getElementById("save-client-btn").addEventListener("click", async () => {
+    const newEmail = document.getElementById("f-email").value.trim();
+    const newName = document.getElementById("f-name").value.trim();
+    if (!newEmail) { toast("请填写邮箱，用于关联该老板的登入账号", true); return; }
+    if (!newName) { toast("请填写姓名", true); return; }
+
+    const payload = {
+      name: newName,
+      email: newEmail,
+      handle: document.getElementById("f-handle").value.trim(),
+      industry: document.getElementById("f-industry").value.trim(),
+      joined_date: document.getElementById("f-joined").value || null,
+      pipeline_stage: Number(document.querySelector(".stage-option.selected")?.dataset.stage || 1),
+      formula: Array.from(document.querySelectorAll("#pillars-container .dyn-row")).map(row => ({
+        code: row.querySelector(".p-code").value.trim(),
+        name: row.querySelector(".p-name").value.trim(),
+        focus: row.querySelector(".p-focus").value.trim(),
+        detail: row.querySelector(".p-detail").value.trim(),
+      })),
+      content_queue: Array.from(document.querySelectorAll("#queue-container .dyn-row")).map(row => ({
+        title: row.querySelector(".q-title").value.trim(),
+        stage: row.querySelector(".q-stage").value.trim(),
+        eta: row.querySelector(".q-eta").value.trim(),
+      })),
+      growth_data: Array.from(document.querySelectorAll("#growth-container .dyn-row")).map(row => ({
+        month: row.querySelector(".g-month").value.trim(),
+        followers: row.querySelector(".g-followers").value ? Number(row.querySelector(".g-followers").value) : null,
+        views: row.querySelector(".g-views").value ? Number(row.querySelector(".g-views").value) : null,
+      })),
+    };
+
+    const btn = document.getElementById("save-client-btn");
+    btn.disabled = true;
+    btn.textContent = "保存中...";
+
+    let error;
+    if (isNew) {
+      ({ error } = await sb.from("client_profiles").insert(payload));
+    } else {
+      ({ error } = await sb.from("client_profiles").update(payload).eq("email", originalEmail));
+    }
+
+    btn.disabled = false;
+    btn.textContent = "保存";
+
+    if (error) {
+      toast("保存失败：" + error.message, true);
+      return;
+    }
+    toast("保存成功");
+    renderAdminList();
+  });
+}
+
+// ---------- 登入后路由：团队管理员 vs 老板 ----------
+async function route(session) {
+  const admin = await isTeamAdmin(session.user.id);
+  if (admin) {
+    renderAdminList();
+  } else {
+    renderClientDashboard(session);
+  }
+}
+
 // ---------- 启动：检查登入状态 ----------
 async function init() {
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
-    renderDashboard(session.user.id);
+    route(session);
   } else {
     renderLogin();
   }
@@ -400,7 +788,7 @@ async function init() {
 
 sb.auth.onAuthStateChange((event, session) => {
   if (event === "SIGNED_IN" && session) {
-    renderDashboard(session.user.id);
+    route(session);
   } else if (event === "SIGNED_OUT") {
     renderLogin();
   }
