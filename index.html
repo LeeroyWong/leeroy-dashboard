@@ -776,8 +776,30 @@ async function route(session) {
   }
 }
 
+// ---------- 处理登入连结点击后，Supabase 重定向带回来的错误信息 ----------
+// 常见情况：magic link 是一次性的，如果邮箱客户端（比如 Outlook 安全链接扫描）
+// 在用户真正点击前就先访问过一次，链接会被提前消耗，导致点击后直接失效。
+function getAuthErrorFromUrl() {
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
+  const params = new URLSearchParams(hash);
+  const error = params.get('error');
+  const errorDescription = params.get('error_description');
+  if (!error && !errorDescription) return null;
+
+  // 清掉网址里的错误参数，避免刷新页面时反复弹出同一个错误
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+
+  return errorDescription ? decodeURIComponent(errorDescription.replace(/\+/g, ' ')) : error;
+}
+
 // ---------- 启动：检查登入状态 ----------
 async function init() {
+  const authError = getAuthErrorFromUrl();
+  if (authError) {
+    renderLogin("登入连结无效或已过期：" + authError + "。请重新发送登入连结（收到后尽快点击，且只点一次）。", true);
+    return;
+  }
+
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     route(session);
